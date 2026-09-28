@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบยืนยันตัวตน - Security Verification</title>
+    <!-- นำเข้า Google Fonts & Font Awesome สำหรับไอคอน -->
+    <link href="https://googleapis.com" rel="stylesheet">
+    <link rel="stylesheet" href="https://cloudflare.com">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Kanit', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* เอฟเฟกต์พื้นหลังเรืองแสง */
+        body::before {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: rgba(99, 102, 241, 0.15);
+            border-radius: 50%;
+            top: 10%;
+            left: 15%;
+            filter: blur(80px);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        /* การ์ดหลัก */
+        .captcha-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            transform: scale(0.9);
+            opacity: 0;
+            animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeIn {
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        h2 {
+            color: #fff;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        /* คำใบ้ */
+        .hint-box {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 20px;
+            color: #cbd5e1;
+            font-size: 0.95rem;
+            border-left: 4px solid #6366f1;
+        }
+
+        .hint-box dashed {
+            color: #f43f5e;
+            font-weight: bold;
+        }
+
+        /* ตารางรูปภาพ */
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .image-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 16px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .image-item:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 12px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .image-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .image-item:hover img {
+            transform: scale(1.1);
+        }
+
+        /* สถานะเมื่อเลือกรูป */
+        .image-item.selected {
+            border-color: #3b82f6;
+        }
+
+        .image-item.selected::after {
+            content: '\f058';
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #3b82f6;
+            background: #fff;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        /* ปุ่มตรวจสอบ / ลิงก์ */
+        .verify-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 14px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* ปุ่มสีแดงตอนแรก */
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+            transform: translateY(-2px);
+        }
+
+        /* ปุ่มสีเขียวเมื่อผ่าน */
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.5);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* ข้อความแจ้งเตือนตอนตอบผิด */
+        .shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="captcha-container" id="captchaBox">
+        <h2><i class="fa-solid fa-shield-halved"></i> ยืนยันตัวตน</h2>
+        
+        <div class="hint-box">
+            คำใบ้: โปรดเลือกรูปที่มี <b style="color: #f43f5e;">"น้องผึ้ง (Bee)"</b> ให้ถูกต้อง!
+        </div>
+
+        <div class="image-grid">
+            <!-- รูปที่ 1: ผึ้ง (คำตอบที่ถูก) -->
+            <div class="image-item" onclick="toggleSelect(this, true)">
+                <img src="https://unsplash.com" alt="Bee">
+            </div>
+            <!-- รูปที่ 2: แมว (ผิด) -->
+            <div class="image-item" onclick="toggleSelect(this, false)">
+                <img src="https://unsplash.com" alt="Cat">
+            </div>
+            <!-- รูปที่ 3: สุนัข (ผิด) -->
+            <div class="image-item" onclick="toggleSelect(this, false)">
+                <img src="https://unsplash.com" alt="Dog">
+            </div>
+            <!-- รูปที่ 4: ผีเสื้อ (ผิด) -->
+            <div class="image-item" onclick="toggleSelect(this, false)">
+                <img src="https://unsplash.com" alt="Butterfly">
+            </div>
+        </div>
+
+        <!-- ปุ่มจะเริ่มด้วยสีแดง (btn-danger) -->
+        <button id="verifyBtn" class="verify-btn btn-danger" onclick="checkVerification()">
+            <i class="fa-solid fa-robot"></i> ตรวจสอบการเลือกรูปภาพ
+        </button>
+    </div>
+
+    <script>
+        let isCorrectSelected = false;
+        let selectedElement = null;
+        let hasPassed = false;
+
+        function toggleSelect(element, isCorrect) {
+            if (hasPassed) return; // ถ้าผ่านแล้วกดเลือกใหม่ไม่ได้
+
+            // รีเซ็ตการเลือกของรูปอื่นทั้งหมด
+            const items = document.querySelectorAll('.image-item');
+            items.forEach(item => item.classList.remove('selected'));
+
+            // เลือกรูปปัจจุบัน
+            element.classList.add('selected');
+            selectedElement = element;
+            isCorrectSelected = isCorrect;
+        }
+
+        function checkVerification() {
+            const btn = document.getElementById('verifyBtn');
+            const box = document.getElementById('captchaBox');
+
+            if (hasPassed) return; // ป้องกันการกดซ้ำหลังจากผ่านแล้ว
+
+            if (isCorrectSelected) {
+                // เอฟเฟกต์เมื่อเลือกถูก
+                hasPassed = true;
+                btn.className = "verify-btn btn-success";
+                btn.innerHTML = `<i class="fa-solid fa-circle-check"></i> ยืนยันสำเร็จ! กำลังเข้าสู่เว็บไซต์...`;
+                
+                // ลบการเลือกกรอบสีฟ้าออกเพื่อความสวยงาม
+                if(selectedElement) selectedElement.style.borderColor = "#10b981";
+
+                // หน่วงเวลา 1.5 วินาทีให้เห็นเอฟเฟกต์สีเขียวก่อน แล้วจึงเด้งไปลิงก์ของคุณ
+                setTimeout(() => {
+                    window.location.href = "https://ai8639647g-cell.github.io/Bee/";
+                }, 1500);
+
+            } else {
+                // เอฟเฟกต์สั่นเตือนเมื่อเลือกผิด หรือไม่ได้เลือก
+                box.classList.add('shake');
+                btn.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ยังไม่ถูกต้อง ลองใหม่อีกครั้ง!`;
+                
+                setTimeout(() => {
+                    box.classList.remove('shake');
+                    btn.innerHTML = `<i class="fa-solid fa-robot"></i> ตรวจสอบการเลือกรูปภาพ`;
+                }, 1000);
+            }
+        }
+    </script>
+</body>
+</html>
