@@ -1,0 +1,767 @@
+<!DOCTYPE html><html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Human Verification - ระบบตรวจสอบสิทธิ์</title>
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Font Awesome -->
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+<style>
+    :root {
+        --bg-color: #060814;
+        --panel-bg: rgba(10, 15, 30, 0.78);
+        --neon-red: #ff3366;
+        --neon-green: #00ffcc;
+        --neon-blue: #00bfff;
+        --text-main: #ffffff;
+        --text-muted: #8a99ad;
+    }
+
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: 'Sarabun', sans-serif;
+    }
+
+    body {
+        min-height: 100vh;
+        background-color: var(--bg-color);
+        background-image:
+            radial-gradient(
+                at 20% 20%,
+                rgba(255, 51, 102, 0.15) 0,
+                transparent 50%
+            ),
+            radial-gradient(
+                at 80% 80%,
+                rgba(0, 191, 255, 0.15) 0,
+                transparent 50%
+            );
+
+        display: flex;
+        justify-content: center;
+        align-items: center;
+
+        overflow: hidden;
+        position: relative;
+        padding: 20px;
+    }
+
+    /* Background scanline */
+    body::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+
+        background:
+            linear-gradient(
+                rgba(18, 16, 16, 0) 50%,
+                rgba(0, 0, 0, 0.25) 50%
+            ),
+            linear-gradient(
+                90deg,
+                rgba(255, 0, 0, 0.03),
+                rgba(0, 255, 0, 0.01),
+                rgba(0, 0, 255, 0.03)
+            );
+
+        background-size:
+            100% 4px,
+            6px 100%;
+
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    /* Main verification window */
+    .captcha-window {
+        background: var(--panel-bg);
+
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+
+        border-radius: 20px;
+
+        padding: 35px;
+
+        width: 100%;
+        max-width: 440px;
+
+        position: relative;
+        z-index: 10;
+
+        box-shadow:
+            0 0 40px rgba(0, 0, 0, 0.8),
+            inset 0 0 20px rgba(255, 255, 255, 0.05);
+
+        text-align: center;
+
+        border: 2px solid rgba(255, 51, 102, 0.3);
+
+        transition:
+            border-color 0.5s ease,
+            box-shadow 0.5s ease;
+    }
+
+    /* Verified state */
+    .captcha-window.verified {
+        border-color: var(--neon-green);
+
+        box-shadow:
+            0 0 50px rgba(0, 255, 204, 0.3),
+            inset 0 0 20px rgba(0, 255, 204, 0.1);
+    }
+
+    /* Header */
+    .header-title {
+        font-family: 'Orbitron', sans-serif;
+
+        color: var(--text-main);
+
+        font-size: 1.3rem;
+
+        letter-spacing: 2px;
+
+        margin-bottom: 8px;
+
+        text-transform: uppercase;
+    }
+
+    .header-title i {
+        color: var(--neon-blue);
+
+        margin-right: 8px;
+
+        text-shadow:
+            0 0 10px rgba(0, 191, 255, 0.8);
+    }
+
+    .sub-title {
+        color: var(--text-muted);
+
+        font-size: 0.85rem;
+
+        margin-bottom: 25px;
+    }
+
+    /* Instruction */
+    .instruction-panel {
+        background: rgba(255, 255, 255, 0.03);
+
+        border: 1px solid rgba(255, 255, 255, 0.08);
+
+        border-radius: 12px;
+
+        padding: 15px;
+
+        margin-bottom: 25px;
+
+        color: #e2e8f0;
+
+        font-size: 1rem;
+
+        position: relative;
+    }
+
+    .instruction-panel b {
+        color: var(--neon-blue);
+
+        text-shadow:
+            0 0 10px rgba(0, 191, 255, 0.5);
+    }
+
+    .info-icon {
+        color: var(--neon-blue);
+
+        margin-right: 5px;
+    }
+
+    /* Answer grid */
+    .captcha-grid {
+        display: grid;
+
+        grid-template-columns: repeat(2, 1fr);
+
+        gap: 15px;
+
+        margin-bottom: 30px;
+    }
+
+    /* Answer button */
+    .captcha-option {
+        background: rgba(255, 255, 255, 0.02);
+
+        border: 1px solid rgba(255, 255, 255, 0.1);
+
+        border-radius: 14px;
+
+        padding: 20px 10px;
+
+        color: #fff;
+
+        font-size: 1.1rem;
+
+        font-weight: 600;
+
+        cursor: pointer;
+
+        transition:
+            all 0.3s cubic-bezier(
+                0.25,
+                0.8,
+                0.25,
+                1
+            );
+
+        position: relative;
+
+        overflow: hidden;
+    }
+
+    .captcha-option:hover {
+        background: rgba(255, 255, 255, 0.08);
+
+        border-color: var(--neon-blue);
+
+        box-shadow:
+            0 0 15px rgba(0, 191, 255, 0.2);
+
+        transform: translateY(-2px);
+    }
+
+    .captcha-option:active {
+        transform: scale(0.97);
+    }
+
+    /* Selected */
+    .captcha-option.active {
+        border-color: var(--neon-blue);
+
+        background: rgba(0, 191, 255, 0.1);
+
+        box-shadow:
+            0 0 20px rgba(0, 191, 255, 0.3);
+    }
+
+    /* Main action button */
+    .action-button {
+        width: 100%;
+
+        padding: 16px;
+
+        border: none;
+
+        border-radius: 14px;
+
+        font-size: 1.1rem;
+
+        font-weight: 600;
+
+        color: #fff;
+
+        display: flex;
+
+        align-items: center;
+
+        justify-content: center;
+
+        gap: 12px;
+
+        text-decoration: none;
+
+        transition:
+            all 0.4s cubic-bezier(
+                0.175,
+                0.885,
+                0.32,
+                1.275
+            );
+
+        cursor: pointer;
+    }
+
+    /* Red */
+    .btn-status-red {
+        background:
+            linear-gradient(
+                135deg,
+                #e11d48 0%,
+                #9f1239 100%
+            );
+
+        box-shadow:
+            0 4px 20px rgba(225, 29, 72, 0.4);
+    }
+
+    .btn-status-red:hover {
+        transform: translateY(-2px);
+
+        box-shadow:
+            0 6px 25px rgba(225, 29, 72, 0.6);
+    }
+
+    /* Green */
+    .btn-status-green {
+        background:
+            linear-gradient(
+                135deg,
+                #10b981 0%,
+                #065f46 100%
+            ) !important;
+
+        box-shadow:
+            0 0 30px rgba(16, 185, 129, 0.6) !important;
+
+        cursor: pointer !important;
+
+        animation: pulseGlow 1.5s infinite;
+    }
+
+    .btn-status-green:hover {
+        transform: translateY(-2px) scale(1.01);
+    }
+
+    @keyframes pulseGlow {
+        0% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.02);
+
+            box-shadow:
+                0 0 40px rgba(16, 185, 129, 0.8);
+        }
+
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    /* Shake */
+    .shake-effect {
+        animation: shake 0.5s ease-in-out;
+    }
+
+    @keyframes shake {
+        0%,
+        100% {
+            transform: translateX(0);
+        }
+
+        20%,
+        60% {
+            transform: translateX(-10px);
+        }
+
+        40%,
+        80% {
+            transform: translateX(10px);
+        }
+    }
+
+    /* Success text */
+    .success-message {
+        display: none;
+
+        margin-top: 15px;
+
+        color: var(--neon-green);
+
+        font-size: 0.85rem;
+
+        text-shadow:
+            0 0 10px rgba(0, 255, 204, 0.5);
+    }
+
+    .success-message.show {
+        display: block;
+    }
+
+    /* Mobile */
+    @media (max-width: 480px) {
+        body {
+            padding: 15px;
+        }
+
+        .captcha-window {
+            padding: 25px 20px;
+        }
+
+        .header-title {
+            font-size: 1.05rem;
+        }
+
+        .sub-title {
+            font-size: 0.78rem;
+        }
+
+        .instruction-panel {
+            font-size: 0.9rem;
+        }
+
+        .captcha-option {
+            padding: 18px 8px;
+            font-size: 1rem;
+        }
+
+        .action-button {
+            font-size: 1rem;
+        }
+    }
+</style>
+
+</head><body><div
+    class="captcha-window"
+    id="captchaWindow"
+>
+
+    <!-- Header -->
+    <div class="header-title">
+        <i class="fa-solid fa-fingerprint"></i>
+        Cyber Security
+    </div>
+
+    <div class="sub-title">
+        ระบบสแกนตรวจสอบพฤติกรรมมนุษย์ (CAPTCHA)
+    </div>
+
+    <!-- Question -->
+    <div class="instruction-panel">
+
+        <i
+            class="fa-solid fa-circle-info info-icon"
+        ></i>
+
+        คำถามทดสอบ:
+
+        <b>
+            "ไก่ กับ ไข่" อะไรเกิดก่อนกัน?
+        </b>
+
+    </div>
+
+    <!-- Options -->
+    <div class="captcha-grid">
+
+        <!-- Chicken -->
+        <button
+            type="button"
+            class="captcha-option"
+            id="optChicken"
+            onclick="selectOption('chicken')"
+        >
+            <i
+                class="fa-solid fa-drumstick-bite"
+                style="opacity:0.3;margin-right:8px;"
+            ></i>
+
+            ไก่
+        </button>
+
+        <!-- Egg -->
+        <button
+            type="button"
+            class="captcha-option"
+            id="optEgg"
+            onclick="selectOption('egg')"
+        >
+            <i
+                class="fa-solid fa-egg"
+                style="opacity:0.3;margin-right:8px;"
+            ></i>
+
+            ไข่
+        </button>
+
+    </div>
+
+    <!-- Main button -->
+    <button
+        type="button"
+        id="submitActionBtn"
+        class="action-button btn-status-red"
+        onclick="handleVerificationClick()"
+    >
+
+        <i
+            id="btnIcon"
+            class="fa-solid fa-lock"
+        ></i>
+
+        <span id="btnText">
+            ตรวจสอบสิทธิ์การเข้าถึง
+        </span>
+
+    </button>
+
+    <!-- Success message -->
+    <div
+        id="successMessage"
+        class="success-message"
+    >
+        <i class="fa-solid fa-circle-check"></i>
+        ยืนยันตัวตนสำเร็จ
+    </div>
+
+</div>
+
+<script>
+
+    /* ================================
+       Verification State
+    ================================= */
+
+    let selectedAnswer = null;
+
+    let isVerifiedPassed = false;
+
+
+    /* ================================
+       Select Answer
+    ================================= */
+
+    function selectOption(choice) {
+
+        if (isVerifiedPassed) {
+            return;
+        }
+
+        selectedAnswer = choice;
+
+        const chicken =
+            document.getElementById(
+                'optChicken'
+            );
+
+        const egg =
+            document.getElementById(
+                'optEgg'
+            );
+
+        /* Remove old selection */
+        chicken.classList.remove('active');
+        egg.classList.remove('active');
+
+        /* Add new selection */
+        if (choice === 'chicken') {
+
+            chicken.classList.add('active');
+
+        }
+
+        if (choice === 'egg') {
+
+            egg.classList.add('active');
+
+        }
+    }
+
+
+    /* ================================
+       Verification
+    ================================= */
+
+    function handleVerificationClick() {
+
+        const windowEl =
+            document.getElementById(
+                'captchaWindow'
+            );
+
+        const actionBtn =
+            document.getElementById(
+                'submitActionBtn'
+            );
+
+        const btnIcon =
+            document.getElementById(
+                'btnIcon'
+            );
+
+        const btnText =
+            document.getElementById(
+                'btnText'
+            );
+
+        const successMessage =
+            document.getElementById(
+                'successMessage'
+            );
+
+
+        /* =================================
+           Already verified
+        ================================= */
+
+        if (isVerifiedPassed) {
+
+            /*
+             * เปลี่ยนลิงก์ตรงนี้ได้
+             * ถ้าต้องการให้ไปเว็บไซต์ของคุณ
+             */
+
+            window.location.href =
+                "https://ai8639647g-cell.github.io/GGB/";
+
+            return;
+        }
+
+
+        /* =================================
+           No answer
+        ================================= */
+
+        if (selectedAnswer === null) {
+
+            showError(
+                windowEl,
+                actionBtn,
+                btnIcon,
+                btnText,
+                "กรุณาเลือกคำตอบก่อนตรวจสอบ"
+            );
+
+            return;
+        }
+
+
+        /* =================================
+           Correct answer
+           ================================= */
+
+        if (selectedAnswer === 'egg') {
+
+            isVerifiedPassed = true;
+
+            /* Window */
+            windowEl.classList.add(
+                'verified'
+            );
+
+
+            /* Button */
+            actionBtn.className =
+                "action-button btn-status-green";
+
+
+            /* Icon */
+            btnIcon.className =
+                "fa-solid fa-door-open";
+
+
+            /* Text */
+            btnText.innerText =
+                "ผ่านการตรวจสอบ! คลิกเพื่อเข้าสู่เว็บไซต์";
+
+
+            /* Egg highlight */
+            const egg =
+                document.getElementById(
+                    'optEgg'
+                );
+
+            egg.style.borderColor =
+                "var(--neon-green)";
+
+            egg.style.background =
+                "rgba(0, 255, 204, 0.1)";
+
+
+            /* Success */
+            successMessage.classList.add(
+                'show'
+            );
+
+
+            return;
+        }
+
+
+        /* =================================
+           Wrong answer
+        ================================= */
+
+        if (selectedAnswer === 'chicken') {
+
+            showError(
+                windowEl,
+                actionBtn,
+                btnIcon,
+                btnText,
+                "ปฏิเสธ! คำตอบไม่ถูกต้องตามระบบ"
+            );
+
+        }
+    }
+
+
+    /* ================================
+       Error Animation
+    ================================= */
+
+    function showError(
+        windowEl,
+        actionBtn,
+        btnIcon,
+        btnText,
+        message
+    ) {
+
+        windowEl.classList.remove(
+            'shake-effect'
+        );
+
+        /*
+         * Force browser to restart animation
+         */
+        void windowEl.offsetWidth;
+
+        windowEl.classList.add(
+            'shake-effect'
+        );
+
+
+        /* Red warning */
+        actionBtn.style.background =
+            "linear-gradient(135deg, #ff0000 0%, #550000 100%)";
+
+
+        btnText.innerText =
+            message;
+
+
+        btnIcon.className =
+            "fa-solid fa-triangle-exclamation";
+
+
+        /* Reset */
+        setTimeout(function () {
+
+            windowEl.classList.remove(
+                'shake-effect'
+            );
+
+            actionBtn.style.background =
+                "";
+
+            btnText.innerText =
+                "ตรวจสอบสิทธิ์การเข้าถึง";
+
+            btnIcon.className =
+                "fa-solid fa-lock";
+
+        }, 1200);
+    }
+
+</script>
+
+</body>
+</html>
