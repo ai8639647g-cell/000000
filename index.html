@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lua AI Smart Auto-Fixer Studio</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap"
+          rel="stylesheet">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Noto Sans Thai", sans-serif;
+        }
+
+        .code-font {
+            font-family: "JetBrains Mono", monospace;
+        }
+
+        .error-underline {
+            text-decoration: underline;
+            text-decoration-style: wavy;
+            text-decoration-color: #ef4444;
+            text-decoration-thickness: 2px;
+            animation: pulseError 2s infinite;
+        }
+
+        @keyframes pulseError {
+            0%, 100% {
+                text-decoration-color: #ef4444;
+            }
+
+            50% {
+                text-decoration-color: #f87171;
+            }
+        }
+
+        #luaEditor,
+        #backdropOverlay {
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            line-height: 1.6;
+            tab-size: 4;
+        }
+
+        #backdropOverlay {
+            overflow: hidden;
+        }
+
+        #luaEditor {
+            z-index: 2;
+        }
+
+        #backdropOverlay {
+            z-index: 1;
+        }
+
+        .terminal-line {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-950 sticky top-0 z-50 px-4 md:px-6 py-4">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-tr from-amber-500 to-red-600 p-2.5 rounded-xl text-white shadow-lg shadow-red-500/20">
+                    <i class="fa-solid fa-wand-magic-sparkles text-xl animate-pulse"></i>
+                </div>
+
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent">
+                        Lua AI Smart Auto-Fixer
+                    </h1>
+
+                    <p class="text-xs text-slate-400">
+                        ระบบตรวจจับ Error และช่วยแก้โค้ด Lua อัตโนมัติ
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 text-xs bg-slate-900 px-3 py-1.5 rounded-full border border-slate-800 text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                AI Healing Engine Online
+            </div>
+
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="flex-1 p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1600px] w-full mx-auto">
+
+        <!-- LEFT -->
+        <section class="lg:col-span-9 flex flex-col gap-4">
+
+            <!-- Editor -->
+            <div class="bg-slate-950 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col min-h-[520px]">
+
+                <!-- Toolbar -->
+                <div class="bg-slate-900/70 px-4 py-3 border-b border-slate-800 flex justify-between items-center gap-2 flex-wrap">
+
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                        <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                        <span class="w-3 h-3 rounded-full bg-green-500"></span>
+
+                        <span class="text-xs text-slate-400 ml-2 code-font">
+                            auto_heal_script.lua
+                        </span>
+                    </div>
+
+                    <div class="flex gap-2 flex-wrap">
+
+                        <button
+                            onclick="checkLuaErrors()"
+                            class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 active:scale-95">
+
+                            <i class="fa-solid fa-magnifying-glass text-xs text-red-400"></i>
+                            สแกน Error
+                        </button>
+
+                        <button
+                            onclick="aiMagicFix()"
+                            class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white px-5 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-orange-600/20 active:scale-95">
+
+                            <i class="fa-solid fa-bolt-lightning text-xs"></i>
+                            AI Auto Fix
+                        </button>
+
+                    </div>
+                </div>
+
+                <!-- Editor Area -->
+                <div class="flex-1 relative flex bg-slate-950 min-h-[400px]">
+
+                    <!-- Line Numbers -->
+                    <div
+                        id="lineNumbers"
+                        class="w-14 shrink-0 bg-slate-900/30 text-right pr-3 pt-4 text-xs code-font text-slate-600 select-none border-r border-slate-900 overflow-hidden">
+                    </div>
+
+                    <!-- Code -->
+                    <div class="flex-1 relative m-4 overflow-hidden">
+
+                        <!-- Highlight Layer -->
+                        <div
+                            id="backdropOverlay"
+                            class="absolute inset-0 code-font text-sm text-emerald-400 pointer-events-none">
+                        </div>
+
+                        <!-- Textarea -->
+                        <textarea
+                            id="luaEditor"
+                            spellcheck="false"
+                            oninput="syncBackdrop()"
+                            onscroll="syncBackdrop()"
+                            class="absolute inset-0 w-full h-full bg-transparent code-font text-sm text-emerald-400 focus:outline-none resize-none caret-white"
+                            placeholder="-- ใส่โค้ด Lua ของคุณที่นี่...
+-- หรือกด Load Error Snippet เพื่อโหลดโค้ดที่มี Error สำหรับทดสอบ"></textarea>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Tools -->
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+
+                <button onclick="triggerTool('scan')"
+                    class="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-900 border border-slate-800 hover:border-red-500/50 hover:bg-red-950/20 text-slate-300 hover:text-red-400 transition-all">
+
+                    <i class="fa-solid fa-radar text-lg mb-1"></i>
+                    <span class="text-xs font-medium">Scan Errors</span>
+                    <div class="w-8 h-0.5 bg-red-500 mt-2"></div>
+                </button>
+
+                <button onclick="triggerTool('fix')"
+                    class="flex flex-col items-center justify-center p-3 rounded-lg bg-gradient-to-b from-slate-900 to-amber-950/20 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-amber-400 transition-all">
+
+                    <i class="fa-solid fa-kit-medical text-lg mb-1 text-amber-500"></i>
+                    <span class="text-xs font-medium">AI Auto-Fix</span>
+                    <div class="w-8 h-0.5 bg-amber-500 mt-2"></div>
+                </button>
+
+                <button onclick="triggerTool('clean-rubbish')"
+                    class="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-900 border border-slate-800 hover:border-purple-500/50 hover:bg-purple-950/20 text-slate-300 hover:text-purple-400 transition-all">
+
+                    <i class="fa-solid fa-filter text-lg mb-1"></i>
+                    <span class="text-xs font-medium">ลบขยะโค้ด</span>
+                    <div class="w-8 h-0.5 bg-purple-500 mt-2"></div>
+                </button>
+
+                <button onclick="triggerTool('snippet')"
+                    class="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-900 border border-slate-800 hover:border-cyan-500/50 hover:bg-cyan-950/20 text-slate-300 hover:text-cyan-400 transition-all">
+
+                    <i class="fa-solid fa-bug text-lg mb-1 text-cyan-400"></i>
+                    <span class="text-xs font-medium">Load Error</span>
+                    <div class="w-8 h-0.5 bg-cyan-500 mt-2"></div>
+                </button>
+
+                <button onclick="triggerTool('format')"
+                    class="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-900 border border-slate-800 hover:border-indigo-500/50 hover:bg-indigo-950/20 text-slate-300 hover:text-indigo-400 transition-all">
+
+                    <i class="fa-solid fa-align-left text-lg mb-1"></i>
+                    <span class="text-xs font-medium">Beautify</span>
+                    <div class="w-8 h-0.5 bg-indigo-500 mt-2"></div>
+                </button>
+
+                <button onclick="triggerTool('clear')"
+                    class="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-900 border border-slate-800 hover:border-red-500/50 hover:bg-red-950/20 text-slate-300 hover:text-red-400 transition-all">
+
+                    <i class="fa-solid fa-trash-can text-lg mb-1"></i>
+                    <span class="text-xs font-medium">ล้างจอ</span>
+                    <div class="w-8 h-0.5 bg-red-500 mt-2"></div>
+                </button>
+
+            </div>
+        </section>
+
+        <!-- RIGHT -->
+        <section class="lg:col-span-3 flex flex-col gap-6">
+
+            <div class="bg-slate-950 rounded-2xl border border-slate-800 p-4 flex flex-col min-h-[520px]">
+
+                <div class="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                    <i class="fa-solid fa-terminal text-amber-400"></i>
+                    AI Fixer Log Activity
+                </div>
+
+                <div
+                    id="terminal"
+                    class="flex-1 bg-black/40 border border-slate-800 rounded-xl p-4 code-font text-xs text-slate-300 whitespace-pre-wrap overflow-auto">
+-- ระบบ Auto-Heal Engine สแตนด์บาย
+-- พร้อมสแกนและแก้ไขโค้ด Lua
+-- กด "Load Error" เพื่อเริ่มทดสอบ
+                </div>
+
+                <div class="mt-4 text-xs text-slate-500 border-t border-slate-800 pt-3">
+                    <i class="fa-solid fa-circle-info mr-1"></i>
+                    ระบบนี้เป็นตัวช่วยตรวจจับรูปแบบ Error เบื้องต้น
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-950 text-center py-4 text-xs text-slate-500">
+        © 2026 Lua AI Smart Auto-Fixer Studio
+    </footer>
+
+
+<script>
+/* =========================================================
+   ELEMENTS
+========================================================= */
+
+const editor = document.getElementById("luaEditor");
+const backdrop = document.getElementById("backdropOverlay");
+const terminal = document.getElementById("terminal");
+const lineNumbers = document.getElementById("lineNumbers");
+
+
+/* =========================================================
+   HTML ESCAPE
+========================================================= */
+
+function escapeHtml(text) {
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+/* =========================================================
+   LINE NUMBERS
+========================================================= */
+
+function updateLineNumbers() {
+    const lineCount = Math.max(1, editor.value.split("\n").length);
+
+    let html = "";
+
+    for (let i = 1; i <= lineCount; i++) {
+        html += i + "<br>";
+    }
+
+    lineNumbers.innerHTML = html;
+}
+
+
+/* =========================================================
+   BACKDROP SYNC
+========================================================= */
+
+function syncBackdrop() {
+
+    backdrop.scrollTop = editor.scrollTop;
+    backdrop.scrollLeft = editor.scrollLeft;
+
+    updateLineNumbers();
+}
+
+
+/* =========================================================
+   ERROR HIGHLIGHT
+========================================================= */
+
+function highlightErrors(text, errors) {
+
+    let safe = escapeHtml(text);
+
+    errors.forEach(error => {
+
+        if (error.type === "operator") {
+            safe = safe.replace(
+                /!=/g,
+                "<span class='error-underline'>!=</span>"
+            );
+        }
+
+        if (error.type === "print") {
+
+            const lines = safe.split("\n");
+
+            for (let i = 0; i < lines.length; i++) {
+
+                if (
+                    lines[i].includes("print(") &&
+                    !hasBalancedParentheses(lines[i])
+                ) {
+                    lines[i] =
+                        "<span class='error-underline'>" +
+                        lines[i] +
+                        "</span>";
+                }
+            }
+
+            safe = lines.join("\n");
+        }
+
+        if (error.type === "rubbish") {
+
+            safe = safe.replace(
+                /(พังพัง|ขยะโค้ด)/g,
+                "<span class='error-underline'>$1</span>"
+            );
+        }
+
+    });
+
+    return safe;
+}
+
+
+/* =========================================================
+   PARENTHESIS CHECK
+========================================================= */
+
+function hasBalancedParentheses(text) {
+
+    let open = 0;
+    let close = 0;
+
+    for (const char of text) {
+
+        if (char === "(") open++;
+        if (char === ")") close++;
+
+    }
+
+    return open === close;
+}
+
+
+/* =========================================================
+   SIMPLE LUA SCANNER
+========================================================= */
+
+function scanLua(code) {
+
+    const errors = [];
+
+    // != ไม่ใช่ operator เปรียบเทียบแบบ Lua
+    if (code.includes("!=")) {
+        errors.push({
+            type: "operator",
+            message: "พบ '!=' — Lua ใช้ '~=' สำหรับ not equal"
+        });
+    }
+
+
+    // ตรวจ print(...)
+    const lines = code.split("\n");
+
+    lines.forEach((line, index) => {
+
+        if (
+            line.includes("print(") &&
+            !hasBalancedParentheses(line)
+        ) {
+
+            errors.push({
+                type: "print",
+                line: index + 1,
+                message: "วงเล็บของ print() ไม่สมดุล"
+            });
+
+        }
+
+    });
+
+
+    // ตรวจข้อความขยะ
+    if (code.includes("พังพัง")) {
+
+        errors.push({
+            type: "rubbish",
+            message: "พบข้อความขยะ 'พังพัง'"
+        });
+
+    }
+
+    if (code.includes("ขยะโค้ด")) {
+
+        errors.push({
+            type: "rubbish",
+            message: "พบข้อความขยะ 'ขยะโค้ด'"
+        });
+
+    }
+
+
+    // ตรวจ block แบบง่าย
+    const blockOpen =
+        (code.match(/\b(function|if|for|while|do|repeat)\b/g) || []).length;
+
+    const blockClose =
+        (code.match(/\bend\b/g) || []).length;
+
+    if (blockOpen > blockClose) {
+
+        errors.push({
+            type: "block",
+            message: "จำนวน block เปิดมากกว่าคำสั่งปิด end"
+        });
+
+    }
+
+    return errors;
+}
+
+
+/* =========================================================
+   SCAN BUTTON
+========================================================= */
+
+function checkLuaErrors() {
+
+    const code = editor.value;
+
+    if (!code.trim()) {
+
+        terminal.textContent =
+            "⚠ [Warning]\nกรุณากรอกโค้ด Lua ก่อนทำการสแกน";
+
+        backdrop.innerHTML = "";
+
+        return;
+    }
+
+
+    terminal.textContent =
+        "🔍 [Scanning]\nกำลังวิเคราะห์โครงสร้าง Lua...\n";
+
+
+    setTimeout(() => {
+
+        const errors = scanLua(code);
+
+        if (errors.length === 0) {
+
+            backdrop.innerHTML = escapeHtml(code);
+
+            terminal.textContent =
+                "✨ [Passed]\n" +
+                "ไม่พบ Error จากกฎตรวจสอบเบื้องต้น\n\n" +
+                "หมายเหตุ: ตัวตรวจนี้ไม่ใช่ Lua parser แบบเต็มรูปแบบ";
+
+            return;
+        }
+
+
+        backdrop.innerHTML =
+            highlightErrors(code, errors);
+
+
+        let log =
+            "❌ [Error Detection]\n" +
+            "พบปัญหา " +
+            errors.length +
+            " รายการ\n\n";
+
+
+        errors.forEach((error, index) => {
+
+            log +=
+                "• " +
+                (index + 1) +
+                ". " +
+                error.message;
+
+            if (error.line) {
+                log += " — บรรทัด " + error.line;
+            }
+
+            log += "\n";
+        });
+
+
+        log +=
+            "\n⚡ กด AI Auto-Fix เพื่อทดลองแก้ไขอัตโนมัติ";
+
+        terminal.textContent = log;
+
+    }, 250);
+}
+
+
+/* =========================================================
+   AUTO FIX
+========================================================= */
+
+function aiMagicFix() {
+
+    let code = editor.value;
+
+    if (!code.trim()) {
+
+        terminal.textContent =
+            "⚠ [Warning]\nไม่มีโค้ดให้ซ่อมแซม";
+
+        return;
+    }
+
+
+    terminal.textContent =
+        "⚡ [AI Engine]\nกำลังวิเคราะห์และแก้ไขโค้ด...";
+
+
+    setTimeout(() => {
+
+        const original = code;
+        const logs = [];
+
+
+        /* -----------------------------------------
+           FIX 1: != -> ~=
+        ----------------------------------------- */
+
+        if (code.includes("!=")) {
+
+            code = code.replace(/!=/g, "~=");
+
+            logs.push(
+                "✍️ แก้ไข '!=' → '~='"
+            );
+        }
+
+
+        /* -----------------------------------------
+           FIX 2: REMOVE RUBBISH
+        ----------------------------------------- */
+
+        if (
+            code.includes("พังพัง") ||
+            code.includes("ขยะโค้ด")
+        ) {
+
+            code = code
+                .replace(/พังพัง/g, "")
+                .replace(/ขยะโค้ด/g, "");
+
+            logs.push(
+                "🗑️ ลบข้อความขยะออกแล้ว"
+            );
+        }
+
+
+        /* -----------------------------------------
+           FIX 3: PRINT PARENTHESIS
+        ----------------------------------------- */
+
+        const lines = code.split("\n");
+
+        let printFixed = false;
+
+        for (let i = 0; i < lines.length; i++) {
+
+            const line = lines[i];
+
+            if (
+                line.includes("print(") &&
+                !hasBalancedParentheses(line)
+            ) {
+
+                const open =
+                    (line.match(/\(/g) || []).length;
+
+                const close =
+                    (line.match(/\)/g) || []).length;
+
+                if (open > close) {
+
+                    lines[i] =
+                        line +
+                        ")".repeat(open - close);
+
+                    printFixed = true;
+                }
+            }
+        }
+
+        code = lines.join("\n");
+
+        if (printFixed) {
+
+            logs.push(
+                "🔧 เติมวงเล็บ ')' ให้ print()"
+            );
+        }
+
+
+        /* -----------------------------------------
+           FIX 4: ADD END
+        ----------------------------------------- */
+
+        const openBlocks =
+            (code.match(/\b(function|if|for|while|do)\b/g) || []).length;
+
+        const closeBlocks =
+            (code.match(/\bend\b/g) || []).length;
+
+        if (openBlocks > closeBlocks) {
+
+            const missing =
+                openBlocks - closeBlocks;
+
+            code =
+                code.trimEnd() +
+                "\n" +
+                Array(missing)
+                    .fill("end")
+                    .join("\n");
+
+            logs.push(
+                "🧱 เติม 'end' ให้ block ที่ยังไม่ปิด " +
+                "(" + missing + " จุด)"
+            );
+        }
+
+
+        /* -----------------------------------------
+           RESULT
+        ----------------------------------------- */
+
+        if (code === original) {
+
+            terminal.textContent =
+                "✨ [No Action]\n" +
+                "ไม่พบรูปแบบ Error ที่ระบบสามารถแก้ได้อัตโนมัติ";
+
+            return;
+        }
+
+
+        editor.value = code;
+
+        backdrop.innerHTML =
+            escapeHtml(code);
+
+        syncBackdrop();
+
+
+        terminal.textContent =
+            "🟢 [AI Healing Successful]\n\n" +
+            logs.join("\n") +
+            "\n\n🎉 แก้ไขโค้ดเสร็จแล้ว";
+
+
+    }, 600);
+}
+
+
+/* =========================================================
+   QUICK TOOLS
+========================================================= */
+
+function triggerTool(type) {
+
+    switch (type) {
+
+        case "scan":
+
+            checkLuaErrors();
+
+            break;
+
+
+        case "fix":
+
+            aiMagicFix();
+
+            break;
+
+
+        case "clean-rubbish": {
+
+            if (!editor.value) {
+
+                terminal.textContent =
+                    "⚠ ไม่มีโค้ดให้ล้าง";
+
+                return;
+            }
+
+            const lines =
+                editor.value.split("\n");
+
+            const cleanLines =
+                lines.filter(line =>
+                    !line.includes("พังพัง") &&
+                    !line.includes("ขยะโค้ด")
+                );
+
+            editor.value =
+                cleanLines.join("\n");
+
+            terminal.textContent =
+                "🗑️ [Cleaned]\n" +
+                "ลบข้อความขยะออกจากโค้ดแล้ว";
+
+            backdrop.innerHTML =
+                escapeHtml(editor.value);
+
+            syncBackdrop();
+
+            break;
+        }
+
+
+        case "snippet": {
+
+            editor.value =
+`function checkData()
+    local level = 99
+
+    if level != 0 then
+        print('กำลังทำงาน'
+
+    ขยะโค้ด พังพัง`;
+
+
+            terminal.textContent =
+                "📋 [Snippet Loaded]\n\n" +
+                "โหลด Lua ตัวอย่างที่มี Error แล้ว\n\n" +
+                "ปัญหาที่ใส่มา:\n" +
+                "• ใช้ != แทน ~=\n" +
+                "• print() วงเล็บไม่ครบ\n" +
+                "• ขาด end\n" +
+                "• มีข้อความขยะ\n\n" +
+                "ลองกด Scan Errors หรือ AI Auto-Fix";
+
+            backdrop.innerHTML =
+                escapeHtml(editor.value);
+
+            syncBackdrop();
+
+            break;
+        }
+
+
+        case "format": {
+
+            if (!editor.value) {
+
+                terminal.textContent =
+                    "⚠ ไม่มีโค้ดให้จัดรูปแบบ";
+
+                return;
+            }
+
+
+            editor.value =
+                editor.value
+                    .split("\n")
+                    .map(line => line.trim())
+                    .join("\n");
+
+
+            terminal.textContent =
+                "✨ [Formatted]\n" +
+                "จัดรูปแบบโค้ดเรียบร้อยแล้ว";
+
+
+            backdrop.innerHTML =
+                escapeHtml(editor.value);
+
+            syncBackdrop();
+
+            break;
+        }
+
+
+        case "clear":
+
+            editor.value = "";
+
+            backdrop.innerHTML = "";
+
+            terminal.textContent =
+                "-- พื้นที่แก้ไขถูกล้างแล้ว\n" +
+                "-- พร้อมสำหรับโค้ดชุดใหม่";
+
+            syncBackdrop();
+
+            break;
+    }
+}
+
+
+/* =========================================================
+   INITIALIZE
+========================================================= */
+
+editor.addEventListener("scroll", syncBackdrop);
+
+editor.addEventListener("input", syncBackdrop);
+
+updateLineNumbers();
+
+syncBackdrop();
+
+</script>
+
+</body>
+</html>
