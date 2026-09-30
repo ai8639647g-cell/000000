@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Human Verification - ระบบตรวจสอบสิทธิ์</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+<style>
+:root{
+    --bg:#060814;
+    --panel:rgba(10,15,30,.82);
+    --red:#ff3366;
+    --green:#00ffcc;
+    --blue:#00bfff;
+    --text:#fff;
+    --muted:#8a99ad;
+}
+
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+    font-family:'Sarabun',sans-serif;
+}
+
+body{
+    min-height:100vh;
+    background:
+        radial-gradient(at 20% 20%,rgba(255,51,102,.15),transparent 50%),
+        radial-gradient(at 80% 80%,rgba(0,191,255,.15),transparent 50%),
+        #060814;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:20px;
+    color:white;
+}
+
+body:before{
+    content:"";
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    background:
+        linear-gradient(rgba(18,16,16,0) 50%,rgba(0,0,0,.25) 50%),
+        linear-gradient(90deg,rgba(255,0,0,.03),rgba(0,255,0,.01),rgba(0,0,255,.03));
+    background-size:100% 4px,6px 100%;
+}
+
+.window{
+    width:100%;
+    max-width:460px;
+    background:var(--panel);
+    backdrop-filter:blur(25px);
+    border:2px solid rgba(255,51,102,.3);
+    border-radius:20px;
+    padding:32px;
+    position:relative;
+    z-index:2;
+    box-shadow:0 0 40px rgba(0,0,0,.8);
+}
+
+.window.verified{
+    border-color:var(--green);
+    box-shadow:0 0 50px rgba(0,255,204,.3);
+}
+
+.title{
+    text-align:center;
+    font-family:Orbitron,sans-serif;
+    font-size:1.25rem;
+    letter-spacing:2px;
+    margin-bottom:8px;
+}
+
+.title i{
+    color:var(--blue);
+}
+
+.subtitle{
+    text-align:center;
+    color:var(--muted);
+    font-size:.85rem;
+    margin-bottom:25px;
+}
+
+.question{
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:12px;
+    padding:15px;
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.question b{
+    color:var(--blue);
+}
+
+.options{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:15px;
+    margin-bottom:20px;
+}
+
+.option,
+.site-option{
+    border:1px solid rgba(255,255,255,.1);
+    background:rgba(255,255,255,.03);
+    color:white;
+    border-radius:14px;
+    padding:18px 10px;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.option:hover,
+.site-option:hover{
+    border-color:var(--blue);
+    background:rgba(0,191,255,.08);
+    transform:translateY(-2px);
+}
+
+.option.active,
+.site-option.active{
+    border-color:var(--green);
+    background:rgba(0,255,204,.1);
+    box-shadow:0 0 20px rgba(0,255,204,.2);
+}
+
+.action{
+    width:100%;
+    border:0;
+    border-radius:14px;
+    padding:16px;
+    color:white;
+    font-size:1rem;
+    font-weight:600;
+    cursor:pointer;
+    background:linear-gradient(135deg,#e11d48,#9f1239);
+    box-shadow:0 4px 20px rgba(225,29,72,.4);
+    transition:.3s;
+}
+
+.action:hover{
+    transform:translateY(-2px);
+}
+
+.action.success{
+    background:linear-gradient(135deg,#10b981,#065f46);
+    box-shadow:0 0 30px rgba(16,185,129,.5);
+}
+
+.message{
+    display:none;
+    text-align:center;
+    color:var(--green);
+    margin-top:15px;
+    font-size:.9rem;
+}
+
+.message.show{
+    display:block;
+}
+
+#siteChooser{
+    display:none;
+}
+
+.site-title{
+    text-align:center;
+    font-family:Orbitron,sans-serif;
+    margin-bottom:8px;
+    font-size:1.1rem;
+}
+
+.site-subtitle{
+    text-align:center;
+    color:var(--muted);
+    font-size:.85rem;
+    margin-bottom:20px;
+}
+
+.site-list{
+    display:grid;
+    gap:12px;
+    margin-bottom:18px;
+}
+
+.site-option{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    text-align:left;
+}
+
+.site-icon{
+    width:45px;
+    height:45px;
+    border-radius:12px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:rgba(0,191,255,.1);
+    color:var(--blue);
+    font-size:20px;
+}
+
+.site-name{
+    font-weight:700;
+}
+
+.site-url{
+    color:var(--muted);
+    font-size:.75rem;
+    word-break:break-all;
+}
+
+.enter{
+    background:linear-gradient(135deg,#10b981,#065f46);
+    box-shadow:0 0 25px rgba(16,185,129,.4);
+}
+
+.back{
+    margin-top:10px;
+    background:rgba(255,255,255,.06);
+    box-shadow:none;
+}
+
+.shake{
+    animation:shake .45s;
+}
+
+@keyframes shake{
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-10px)}
+    75%{transform:translateX(10px)}
+}
+
+@media(max-width:480px){
+    .window{
+        padding:24px 18px;
+    }
+
+    .title{
+        font-size:1rem;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="window" id="mainWindow">
+
+    <!-- =========================
+         HUMAN VERIFICATION
+    ========================== -->
+
+    <section id="verification">
+
+        <div class="title">
+            <i class="fa-solid fa-fingerprint"></i>
+            Cyber Security
+        </div>
+
+        <div class="subtitle">
+            ระบบตรวจสอบพฤติกรรมมนุษย์
+        </div>
+
+        <div class="question">
+            <i class="fa-solid fa-circle-info"></i>
+            คำถามทดสอบ:
+            <b>"ไก่ กับ ไข่" อะไรเกิดก่อนกัน?</b>
+        </div>
+
+        <div class="options">
+
+            <button class="option"
+                    id="chicken"
+                    onclick="selectAnswer('chicken')">
+                <i class="fa-solid fa-drumstick-bite"></i>
+                ไก่
+            </button>
+
+            <button class="option"
+                    id="egg"
+                    onclick="selectAnswer('egg')">
+                <i class="fa-solid fa-egg"></i>
+                ไข่
+            </button>
+
+        </div>
+
+        <button class="action"
+                id="verifyBtn"
+                onclick="verifyHuman()">
+
+            <i class="fa-solid fa-lock"></i>
+            ตรวจสอบสิทธิ์การเข้าถึง
+
+        </button>
+
+        <div class="message" id="success">
+            <i class="fa-solid fa-circle-check"></i>
+            ยืนยันตัวตนสำเร็จ
+        </div>
+
+    </section>
+
+
+    <!-- =========================
+         WEBSITE SELECTOR
+    ========================== -->
+
+    <section id="siteChooser">
+
+        <div class="site-title">
+            <i class="fa-solid fa-globe"></i>
+            เลือกเว็บไซต์
+        </div>
+
+        <div class="site-subtitle">
+            กรุณาเลือกเว็บไซต์ที่ต้องการเข้าสู่ระบบ
+        </div>
+
+        <div class="site-list">
+
+            <!-- เว็บไซต์ที่ 1 -->
+            <button class="site-option"
+                    onclick="selectSite(1)"
+                    id="site1">
+
+                <div class="site-icon">
+                    <i class="fa-solid fa-code"></i>
+                </div>
+
+                <div>
+                    <div class="site-name">
+                        เว็บไซต์หลัก
+                    </div>
+
+                    <div class="site-url">
+                        https://ai8639647g-cell.github.io/script/
+                    </div>
+                </div>
+
+            </button>
+
+
+            <!-- เว็บไซต์ที่ 2 -->
+            <button class="site-option"
+                    onclick="selectSite(2)"
+                    id="site2">
+
+                <div class="site-icon">
+                    <i class="fa-solid fa-rocket"></i>
+                </div>
+
+                <div>
+                    <div class="site-name">
+                        เว็บไซต์ที่สอง
+                    </div>
+
+                    <div class="site-url">
+                        https://ai8639647g-cell.github.io/Bee/
+                    </div>
+                </div>
+
+            </button>
+
+        </div>
+
+        <button class="action enter"
+                onclick="openSelectedSite()">
+
+            <i class="fa-solid fa-arrow-right"></i>
+            เข้าสู่เว็บไซต์ที่เลือก
+
+        </button>
+
+        <button class="action back"
+                onclick="goBack()">
+
+            <i class="fa-solid fa-arrow-left"></i>
+            กลับไปตรวจสอบ
+        </button>
+
+    </section>
+
+</div>
+
+
+<script>
+
+let selectedAnswer = null;
+let selectedSite = null;
+
+
+/* =========================
+   SELECT ANSWER
+========================= */
+
+function selectAnswer(answer){
+
+    selectedAnswer = answer;
+
+    document
+        .getElementById("chicken")
+        .classList.remove("active");
+
+    document
+        .getElementById("egg")
+        .classList.remove("active");
+
+    document
+        .getElementById(answer)
+        .classList.add("active");
+}
+
+
+/* =========================
+   VERIFY HUMAN
+========================= */
+
+function verifyHuman(){
+
+    const box =
+        document.getElementById("mainWindow");
+
+    const btn =
+        document.getElementById("verifyBtn");
+
+    const success =
+        document.getElementById("success");
+
+    if(selectedAnswer === null){
+
+        box.classList.remove("shake");
+
+        void box.offsetWidth;
+
+        box.classList.add("shake");
+
+        btn.innerHTML =
+            '<i class="fa-solid fa-triangle-exclamation"></i> กรุณาเลือกคำตอบก่อน';
+
+        setTimeout(() => {
+
+            btn.innerHTML =
+                '<i class="fa-solid fa-lock"></i> ตรวจสอบสิทธิ์การเข้าถึง';
+
+        },1200);
+
+        return;
+    }
+
+
+    /*
+       ตัวอย่างนี้กำหนด "ไข่" เป็นคำตอบผ่าน
+    */
+
+    if(selectedAnswer === "egg"){
+
+        box.classList.add("verified");
+
+        btn.classList.add("success");
+
+        btn.innerHTML =
+            '<i class="fa-solid fa-check"></i> ผ่านการตรวจสอบ';
+
+        success.classList.add("show");
+
+        setTimeout(() => {
+
+            document.getElementById("verification").style.display =
+                "none";
+
+            document.getElementById("siteChooser").style.display =
+                "block";
+
+        },700);
+
+        return;
+    }
+
+
+    /* คำตอบไม่ผ่าน */
+
+    box.classList.remove("shake");
+
+    void box.offsetWidth;
+
+    box.classList.add("shake");
+
+    btn.innerHTML =
+        '<i class="fa-solid fa-triangle-exclamation"></i> คำตอบไม่ถูกต้อง';
+
+    setTimeout(() => {
+
+        btn.innerHTML =
+            '<i class="fa-solid fa-lock"></i> ตรวจสอบสิทธิ์การเข้าถึง';
+
+    },1200);
+}
+
+
+/* =========================
+   SELECT WEBSITE
+========================= */
+
+function selectSite(number){
+
+    selectedSite = number;
+
+    document
+        .getElementById("site1")
+        .classList.remove("active");
+
+    document
+        .getElementById("site2")
+        .classList.remove("active");
+
+    document
+        .getElementById("site" + number)
+        .classList.add("active");
+}
+
+
+/* =========================
+   OPEN WEBSITE
+========================= */
+
+function openSelectedSite(){
+
+    if(selectedSite === null){
+
+        alert("กรุณาเลือกเว็บไซต์ก่อน");
+
+        return;
+    }
+
+    if(selectedSite === 1){
+
+        window.location.href =
+            "https://ai8639647g-cell.github.io/script/";
+
+    }
+
+    if(selectedSite === 2){
+
+        window.location.href =
+            "https://ai8639647g-cell.github.io/Bee/";
+
+    }
+}
+
+
+/* =========================
+   BACK
+========================= */
+
+function goBack(){
+
+    document.getElementById("siteChooser").style.display =
+        "none";
+
+    document.getElementById("verification").style.display =
+        "block";
+
+    selectedSite = null;
+}
+
+</script>
+
+</body>
+</html>
